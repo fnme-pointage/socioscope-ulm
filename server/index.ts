@@ -18,12 +18,13 @@ import * as route15 from '../src/app/api/rup/route';
 import {db,bucket,projectURL,serviceKey} from './storage';
 import {loadSeeds} from './seeds';import {initializeBase} from '../src/lib/store';
 const CLIENT_ORIGIN='https://fnme-pointage.github.io';
+const ALLOWED_ORIGINS=new Set([CLIENT_ORIGIN,'https://socioscope-ulm.github.io']);
 const routes:any[]=[[new RegExp('^/api/agents/decision$'),route1],[new RegExp('^/api/agents/import$'),route4],[new RegExp('^/api/payroll/import$'),route11],[new RegExp('^/api/agents$'),route5],[new RegExp('^/api/data$'),route6],[new RegExp('^/api/import$'),route8],[new RegExp('^/api/payroll$'),route12],[new RegExp('^/api/rows$'),route14],[new RegExp('^/api/rup$'),route15],[new RegExp('^/api/agents/files/([^/]+)$'),route2],[new RegExp('^/api/agents/import/([^/]+)$'),route3],[new RegExp('^/api/payroll/files/([^/]+)$'),route9],[new RegExp('^/api/payroll/import/([^/]+)$'),route10],[new RegExp('^/api/agents/([^/]+)$'),route0],[new RegExp('^/api/files/([^/]+)$'),route7],[new RegExp('^/api/review/([^/]+)$'),route13]];
 const json=(body:any,status=200)=>Response.json(body,{status});
 export async function handler(req:Request){
- const origin=req.headers.get('origin');const cors:any={'Access-Control-Allow-Origin':CLIENT_ORIGIN,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS','Access-Control-Expose-Headers':'Content-Disposition,Content-Type','Cache-Control':'no-store','Vary':'Origin'};
+ const origin=req.headers.get('origin');const cors:any={'Access-Control-Allow-Origin':origin&&ALLOWED_ORIGINS.has(origin)?origin:CLIENT_ORIGIN,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS','Access-Control-Expose-Headers':'Content-Disposition,Content-Type','Cache-Control':'no-store','Vary':'Origin'};
  const finish=(r:Response)=>{const h=new Headers(r.headers);for(const [k,v]of Object.entries(cors))h.set(k,String(v));return new Response(r.body,{status:r.status,headers:h});};
- if(origin&&origin!==CLIENT_ORIGIN)return finish(json({error:'Origine non autorisée.'},403));
+ if(origin&&!ALLOWED_ORIGINS.has(origin))return finish(json({error:'Origine non autorisée.'},403));
  if(req.method==='OPTIONS')return finish(new Response(null,{status:204}));
  try{
  const authorization=req.headers.get('authorization')||'';
