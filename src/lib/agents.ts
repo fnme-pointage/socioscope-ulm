@@ -5,11 +5,11 @@ export type AgentEvent={agentId:string;date:string;kind:string;motif:string;nrRa
 export type AgentData={rup?:RupData;sources:AgentSource[];records:AgentRecord[];events:AgentEvent[];issues:any[];updated:string};
 export const normalName=(v:unknown)=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
 export const normalizeNNI=(v:unknown)=>{const t=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');const m=t.match(/^([A-Z]\d{5})([A-Z0-9]{2})?$/);return m?.[1]||null;};
-export function careerSeniority(records:AgentRecord[],sources:AgentSource[],asof:string){
+export function careerSeniority(records:AgentRecord[],sources:AgentSource[],asof:string,selectedSourceId?:string){
  const utc=(date:string)=>new Date(date+'T00:00:00Z');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(asof)||Number.isNaN(+utc(asof))||utc(asof).toISOString().slice(0,10)!==asof)return null;
  const refs=new Map(sources.map(s=>[s.id,s]));
- const rows=records.filter(r=>(refs.get(r.source)?.primary||refs.get(r.source)?.status==='validated')&&(refs.get(r.source)?.date||'9999')<=asof);
+ const rows=records.filter(r=>(refs.get(r.source)?.primary||refs.get(r.source)?.status==='validated'||r.source===selectedSourceId)&&(refs.get(r.source)?.date||'9999')<=asof);
  const yearsBetween=(start:string,end:string)=>{const a=utc(start),b=utc(end);let years=b.getUTCFullYear()-a.getUTCFullYear();const anniversary=new Date(Date.UTC(a.getUTCFullYear()+years,a.getUTCMonth(),a.getUTCDate()));if(anniversary>b)years--;const left=new Date(Date.UTC(a.getUTCFullYear()+years,a.getUTCMonth(),a.getUTCDate()));const right=new Date(Date.UTC(a.getUTCFullYear()+years+1,a.getUTCMonth(),a.getUTCDate()));return years+(+b-+left)/(+right-+left);};
  const rup=records.find(r=>r.rupCareer)?.rupCareer;
  if(rup&&['conflict','ambiguous'].includes(rup.status))return {years:null,completedYears:null,asof,start:'',base:0,method:rup.status==='ambiguous'?'RUP · plusieurs contrats à rapprocher':'RUP · dates IEG contradictoires à vérifier',estimated:false,conflict:true,evidence:{source:records[0].source,row:records[0].row},firstSeen:rows.map(r=>refs.get(r.source)!.date).sort()[0]};
