@@ -15,3 +15,11 @@
 .desktop-nav-select{display:flex;flex-direction:column;gap:7px;margin:0 6px 22px;font-size:11px;font-weight:700;color:var(--muted);flex-shrink:0}.desktop-nav-select select{width:100%;min-width:0;padding:11px 9px;border:1px solid var(--border);border-radius:8px;background:#f5f7f3;color:var(--ink);font-size:12px;cursor:pointer}.sidebar>nav{min-height:0;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:#afbeb0 transparent}.sidebar>.brand,.sidebar>.nav-caption,.sidebar>.sidebar-foot{flex-shrink:0}.sidebar>.sidebar-foot{margin-top:14px}@media(max-width:760px){.desktop-nav-select{display:none}}
 
 @media(max-width:760px){.topbar{display:grid;grid-template-columns:max-content minmax(0,1fr) auto;grid-template-rows:auto auto;height:auto;min-height:92px;padding:10px 17px;gap:8px 12px}.topbar>.menu-btn{grid-column:1;grid-row:1;justify-self:start}.topbar>.topbar-back{grid-column:1;grid-row:2;justify-self:start;padding:8px 10px}.topbar>span{grid-column:2;grid-row:1;line-height:1.4}.topbar>div{grid-column:3;grid-row:1}}
+
+/* Keep the desktop back control visible inside the content column, clear of the fixed navigation. */
+@media (min-width:761px){
+  .shell > main{margin-left:249px;min-width:0;}
+  .topbar{gap:16px;}
+  .topbar > .topbar-back{position:relative;left:auto;right:auto;transform:none;display:inline-flex;flex:none;min-width:max-content;z-index:1;}
+}
+@media (min-width:761px) and (max-width:1000px){.shell > main{margin-left:210px;}}
