@@ -23,7 +23,7 @@ export function agentPayroll(data:AgentData,sourceId:string,residence='agency',c
   const residential=residence==='agency'?agencyResidence(r.agency):{residence,residenceProvisional:false};
   const rates=allRates[residential.residence];
   const salary=r.nr!==undefined&&level!==null?rates?.[String(r.nr)]?.[level-1]:undefined;
-  const reason=!r.nni?'NNI non rapproché':r.conflicts.includes('nr')?'NR divergent':!rates?'Majoration résidentielle absente de la grille':!rates[String(r.nr)]?'NR absent de la grille':level===null?'Ancienneté non calculable':salary==null?'Échelon absent de la grille':undefined;
+  const reason=!r.nni?'NNI non rapproché':r.conflicts.includes('nr')?'NR divergent':!rates?'Majoration résidentielle absente de la grille':!rates[String(r.nr)]?'NR absent de la grille':level===null?(career?.method||'Ancienneté non calculable'):salary==null?'Échelon absent de la grille':undefined;
   return {...residential,family:teams.get(r.agentId)?.size===1?[...teams.get(r.agentId)!][0]:'Rattachement divergent',m3e:m3eKey(r),gfLabel:r.gf===undefined?'GF non renseigné':'GF '+r.gf,agentId:r.agentId,nni:r.nni,name:r.name,nr:r.nr,gf:r.gf,college:r.college||'non renseigne',agency:r.agency||'Non renseignée',years:career?.years,level,method:career?.method,firstSeenEstimate:!!career?.estimated,manualPresence:!!r.manualPresence,annualBonusCents:r.gf!==undefined?(config?.bonuses||bonuses as Record<string,number>)[String(r.gf)]??null:null,monthlyCents:reason?null:salary??null,reason};
  });
  const included=rows.filter(r=>r.monthlyCents!==null);
