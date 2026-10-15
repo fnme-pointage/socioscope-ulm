@@ -18,7 +18,7 @@ export function agentPayroll(data:AgentData,sourceId:string,residence='agency',c
  for(const r of data.records)if(!r.manualPresence){const rows=histories.get(r.agentId)||[];rows.push(r);histories.set(r.agentId,rows);}
  const teams=new Map<string,Set<string>>();for(const r of data.records)if(r.source===sourceId){const set=teams.get(r.agentId)||new Set<string>();set.add(r.team?.trim()||'Non renseignée');teams.set(r.agentId,set);}
  const rows=snapshot(data,sourceId).map(r=>{
-  const career=careerSeniority(histories.get(r.agentId)||[],data.sources,reference.date);
+  const career=careerSeniority(histories.get(r.agentId)||[],data.sources,reference.date,sourceId);
   const level=career?.years!=null?echelonFor(career.years):null;
   const residential=residence==='agency'?agencyResidence(r.agency):{residence,residenceProvisional:false};
   const rates=allRates[residential.residence];
