@@ -15,7 +15,7 @@ export function careerSeniority(records:AgentRecord[],sources:AgentSource[],asof
  const rupProblem=rup&&['conflict','ambiguous'].includes(rup.status)?rup.status:null;
  // A disputed RUP cannot be used as an entry date, but independent documented
  // seniority (IEG years or an explicit entry date) remains usable.
- const historicalAnchor=rows.some(r=>(typeof r.iegYears==='number'&&r.iegYears>=0)||(r.entryIEG&&r.entryIEG<=asof)||(r.entryCompany&&r.entryCompany<=asof));
+ const historicalAnchor=rows.some(r=>((typeof r.iegYears==='number'&&r.iegYears>=0&&(r.seniorityDate||refs.get(r.source)!.seniorityDate)<=asof)||(r.entryIEG&&r.entryIEG<=asof)||(r.entryCompany&&r.entryCompany<=asof)));
  if(rupProblem&&!historicalAnchor)return {years:null,completedYears:null,asof,start:'',base:0,method:rupProblem==='ambiguous'?'RUP · plusieurs contrats à rapprocher ; aucune ancienneté indépendante':'RUP · dates IEG contradictoires ; aucune ancienneté indépendante',estimated:false,conflict:true,evidence:{source:records[0].source,row:records[0].row},firstSeen:rows.map(r=>refs.get(r.source)!.date).sort()[0]};
  if(rup?.status==='confirmed'&&rup.date&&rup.date>asof)return null;
  if(rup?.status==='confirmed'&&rup.date&&rup.date<=asof){const years=yearsBetween(rup.date,asof);return {years,completedYears:Math.floor(years+1e-8),asof,start:rup.date,base:0,method:'Date d’entrée IEG du RUP',estimated:false,conflict:false,evidence:{source:records[0].source,row:records[0].row},rupEvidence:rup.history.filter(r=>r.entreeIEG===rup.date),firstSeen:rows.map(r=>refs.get(r.source)!.date).sort()[0]};}
