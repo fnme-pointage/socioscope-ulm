@@ -20,6 +20,8 @@ jobs:
         run: |
           mkdir -p supabase/functions/socioscope-api
           printf "import '../../../server/index.ts';\n" > supabase/functions/socioscope-api/index.ts
+      - name: Normalize local imports for the Deno bundler
+        run: python3 .github/scripts/prepare-edge.py
       - name: Deploy (retain existing API JWT handling)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
