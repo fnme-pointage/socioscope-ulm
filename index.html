@@ -1,1 +1,40 @@
-<!doctype html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Socioscope ULM</title><link rel="icon" href="./favicon.svg"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#13543d">
+  <title>Socioscope ULM — Nouvelle adresse</title>
+  <link rel="canonical" href="https://socioscope-ulm.github.io/">
+  <script>
+    // Forward the full Supabase login/recovery callback fragment without exposing
+    // it to third parties, and retain any useful query parameters.
+    // The new site's authentication handler consumes the fragment on arrival.
+    (function () {
+      var destination = new URL('https://socioscope-ulm.github.io/');
+      destination.search = window.location.search;
+      destination.hash = window.location.hash;
+      window.location.replace(destination.href);
+    }());
+  </script>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f7f4; color: #183e30; }
+    main { box-sizing: border-box; margin: 24px; max-width: 600px; padding: 32px; background: white; border: 1px solid #d7e7dd; border-radius: 16px; text-align: center; }
+    h1 { font-size: 24px; margin-top: 0; }
+    p { line-height: 1.6; color: #546b5d; }
+    a { display: inline-block; margin-top: 10px; padding: 12px 18px; border-radius: 9px; background: #13543d; color: #fff; text-decoration: none; font-weight: 650; }
+    a:focus-visible { outline: 3px solid #85bda6; outline-offset: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Le Socioscope ULM a changé d'adresse</h1>
+    <p>Vous êtes redirigé vers le nouveau site autonome. Si la redirection ne fonctionne pas, utilisez le lien ci-dessous.</p>
+    <a href="https://socioscope-ulm.github.io/">Accéder au nouveau Socioscope ULM</a>
+  </main>
+  <noscript><p style="text-align:center">Activez JavaScript ou utilisez le lien ci-dessus pour accéder au nouveau site.</p></noscript>
+</body>
+</html>
