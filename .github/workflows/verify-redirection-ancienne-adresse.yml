@@ -1,0 +1,51 @@
+name: Verify safe legacy Socioscope redirect
+on:
+  push:
+    branches: [redirection-ancienne-adresse-socioscope-20261021]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build the legacy Pages site independently
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s docs/index.html
+          test -s docs/404.html
+      - name: Check old links and Supabase callbacks are forwarded safely
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          import assert from 'node:assert/strict';
+          const html=fs.readFileSync('docs/index.html','utf8');
+          const notFound=fs.readFileSync('docs/404.html','utf8');
+          for(const source of [html,notFound]){
+            assert.match(source,/nouveau Socioscope ULM/i);
+            assert.doesNotMatch(source,/src\/main.tsx/);
+            assert.doesNotMatch(source,/(?:supabase-api|SUPABASE_ACCESS_TOKEN|service_role)/);
+            const script=source.match(/<script>\s*([\s\S]+?)\s*<\/script>/)?.[1];
+            assert.ok(script,'redirect script exists');
+            for(const expected of [
+              ['https://fnme-pointage.github.io/socioscope-ulm/','https://socioscope-ulm.github.io/'],
+              ['https://fnme-pointage.github.io/socioscope-ulm/?utm_source=signet','https://socioscope-ulm.github.io/?utm_source=signet'],
+              ['https://fnme-pointage.github.io/socioscope-ulm/#access_token=DEMO&refresh_token=DEMO2&type=recovery','https://socioscope-ulm.github.io/#access_token=DEMO&refresh_token=DEMO2&type=recovery'],
+              ['https://fnme-pointage.github.io/socioscope-ulm/?from=old#access_token=DEMO&type=invite','https://socioscope-ulm.github.io/?from=old#access_token=DEMO&type=invite'],
+              ['https://fnme-pointage.github.io/socioscope-ulm/#error_description=expired','https://socioscope-ulm.github.io/#error_description=expired']
+            ]){
+              const url=new URL(expected[0]);
+              let actual='';
+              const context={window:{location:{search:url.search,hash:url.hash,replace(v){actual=v}}},URL};
+              vm.runInNewContext(script,context,{timeout:2000});
+              assert.equal(actual,expected[1]);
+            }
+          }
+          console.log('Redirect verified for basic old links, query strings, auth tokens and recovery errors.');
+          NODE
