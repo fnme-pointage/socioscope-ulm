@@ -24,7 +24,7 @@ if(view==='executives'){
   let detail:any={};try{detail=JSON.parse(d.note||'{}');}catch{}
   const historical=[...(historyByAgent.get(d.agent)||[])].sort((a,b)=>(sourceDates.get(a.source)||'').localeCompare(sourceDates.get(b.source)||''));
   const last=historical.at(-1);
-  const knownUnitDate=historical.map(r=>r.entryUnit).filter((v):v is string=>!!v&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)).sort()[0]||'';
+  const knownUnitDate=historical.map(r=>r.entryUnit).filter((v):v is string=>!!v&&/^\d{4}-\d{2}-\d{2}$/.test(v)).sort()[0]||'';
   const firstAgency=historical.find(r=>r.agency?.trim())?.agency?.trim()||'';
   const manual=d.agent.startsWith('exec-manual-');
   const origin=detail.origin||(!manual?firstAgency:'');
