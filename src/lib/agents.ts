@@ -29,7 +29,36 @@ export function careerSeniority(records:AgentRecord[],sources:AgentSource[],asof
 }
 export function unpackAgentSeed(p:any):AgentData{const decode=(v:any):any=>typeof v==='number'&&v<0?p.strings[-v-1]:Array.isArray(v)?v.map(decode):v&&typeof v==='object'?('number'in v?v.number:Object.fromEntries(Object.entries(v).map(([k,x])=>[k,decode(x)]))):v;const unpack=(fields:string[],r:any[])=>Object.fromEntries(fields.flatMap((k,i)=>r[i]===null?[]:[[k,decode(r[i])]]));return {...p,strings:undefined,recordFields:undefined,eventFields:undefined,records:p.records.map((r:any[])=>{const record=unpack(p.recordFields,r);if(['s2022jan','s2022dec'].includes(record.source)&&!record.college&&typeof record.gf==='number'&&record.gf>=12)record.college='cadres';return record;}),events:p.events.map((r:any[])=>unpack(p.eventFields,r))};}
 export function snapshot(data:AgentData,source:string){const grouped=new Map<string,AgentRecord[]>();for(const r of data.records.filter(r=>r.source===source)){const rows=grouped.get(r.agentId)||[];rows.push(r);grouped.set(r.agentId,rows);}return [...grouped].map(([agentId,rows])=>{const out:any={...rows[0],agentId,situations:rows.length,conflicts:[]};for(const field of ['nr','gf','nrYears','gfYears','iegYears','coefficient','agency','college','gfDate','nrDate','seniorityDate','m3e']){const values=[...new Set(rows.map(r=>(r as any)[field]).filter(v=>v!==undefined&&v!==''))];if(values.length>1){out[field]=undefined;out.conflicts.push(field);}else out[field]=values[0];}return out as AgentRecord&{situations:number;conflicts:string[]};});}
-export function sourcePairs(data:AgentData,id:string,previous?:string){const src=data.sources.find(s=>s.id===id);const older=previous?data.sources.find(s=>s.id===previous):data.sources.filter(s=>s.primary&&s.date<(src?.date||'')&&data.records.some(r=>r.source===s.id)&&!data.records.some(r=>r.source===s.id&&!r.nni)).sort((a,b)=>b.date.localeCompare(a.date))[0];const current=snapshot(data,id),before=older?snapshot(data,older.id):[];const c=new Map(current.filter(r=>r.nni).map(r=>[r.agentId,r])),p=new Map(before.filter(r=>r.nni).map(r=>[r.agentId,r]));const appeared=current.filter(r=>r.nni&&!p.has(r.agentId)),absent=before.filter(r=>r.nni&&!c.has(r.agentId));const reappeared=appeared.filter(r=>data.records.some(x=>x.agentId===r.agentId&&(data.sources.find(s=>s.id===x.source)?.date||'')<(older?.date||'')));const changes=current.filter(r=>{const old=p.get(r.agentId);return old&&((r.nr!==undefined&&old.nr!==undefined&&r.nr!==old.nr)||(r.gf!==undefined&&old.gf!==undefined&&r.gf!==old.gf)||(r.agency&&old.agency&&r.agency!==old.agency));}).map(r=>({current:r,previous:p.get(r.agentId)}));return {source:src,previous:older,appeared,absent,reappeared,changes,canInferAbsence:!!src?.primary&&!!older&&older.date<src.date&&current.every(r=>!!r.nni)&&before.every(r=>!!r.nni)};}
+export function sourcePairs(data:AgentData,id:string,previous?:string){
+ const src=data.sources.find(s=>s.id===id);
+ const compatible=data.sources.filter(s=>s.status!=='review'&&s.date<(src?.date||'')&&data.records.some(r=>r.source===s.id));
+ const mostRecentDate=compatible.map(s=>s.date).sort((a,b)=>b.localeCompare(a))[0];
+ const candidates=compatible.filter(s=>s.date===mostRecentDate).sort((a,b)=>{
+  const priority=(s:AgentSource)=>/onglets? mis en forme/i.test(s.name+' '+s.label)?2:Number(!!s.primary);
+  return priority(b)-priority(a);
+ });
+ const older=previous?compatible.find(s=>s.id===previous):candidates[0];
+ const current=snapshot(data,id),before=older?snapshot(data,older.id):[];
+ const c=new Map(current.filter(r=>r.nni).map(r=>[r.agentId,r])),p=new Map(before.filter(r=>r.nni).map(r=>[r.agentId,r]));
+ const appeared=current.filter(r=>r.nni&&!p.has(r.agentId));
+ const absent:any[]=before.filter(r=>r.nni&&!c.has(r.agentId));
+ // Exception GF 19 : keep the historic watchlist when an executive-level
+ // employee disappeared before the immediately preceding snapshot.
+ const already=new Set(absent.map(r=>r.agentId));
+ const olderSources=data.sources.filter(s=>s.status!=='review'&&s.date<(older?.date||src?.date||'')).sort((a,b)=>b.date.localeCompare(a.date)||Number(!!b.primary)-Number(!!a.primary));
+ const lastOlder=new Map<string,AgentRecord>();
+ for(const source of olderSources)for(const r of snapshot(data,source.id)){
+  if(r.nni&&!lastOlder.has(r.agentId))lastOlder.set(r.agentId,r);
+ }
+ for(const r of lastOlder.values()){
+  if(r.gf===19&&!c.has(r.agentId)&&!p.has(r.agentId)&&!already.has(r.agentId)){
+   absent.push({...r,historicalGF19:true});already.add(r.agentId);
+  }
+ }
+ const reappeared=appeared.filter(r=>data.records.some(x=>x.agentId===r.agentId&&(data.sources.find(s=>s.id===x.source)?.date||'')<(older?.date||'')));
+ const changes=current.filter(r=>{const old=p.get(r.agentId);return old&&((r.nr!==undefined&&old.nr!==undefined&&r.nr!==old.nr)||(r.gf!==undefined&&old.gf!==undefined&&r.gf!==old.gf)||(r.agency&&old.agency&&r.agency!==old.agency));}).map(r=>({current:r,previous:p.get(r.agentId)}));
+ return {source:src,previous:older,appeared,absent,reappeared,changes,canInferAbsence:!!src?.primary&&!!older&&older.date<src.date&&current.every(r=>!!r.nni)&&before.every(r=>!!r.nni)};
+}
 export function agentProfile(data:AgentData,id:string){const records=data.records.filter(r=>r.agentId===id);const history=data.events.filter(e=>e.agentId===id).sort((a,b)=>b.date.localeCompare(a.date));const sources=data.sources.filter(s=>records.some(r=>r.source===s.id)).sort((a,b)=>b.date.localeCompare(a.date)||Number(b.primary)-Number(a.primary));return {id,rup:data.rup?.records.filter(r=>r.nni===id)||[],records,events:history,sources,snapshots:sources.map(s=>({source:s,situation:snapshot({ ...data,records:records.filter(r=>r.source===s.id)},s.id)[0]}))};}
 export function validateAgentRecord(r:any):r is AgentRecord{return !!r&&typeof r.name==='string'&&r.name.length>0&&r.name.length<180&&typeof r.agentId==='string'&&r.agentId.length<100&&Number.isInteger(r.row)&&r.row>0&&(!r.nni||normalizeNNI(r.nni)===r.nni)&&['nr','gf','nrYears','gfYears','iegYears','age','coefficient'].every(k=>r[k]===undefined||r[k]===null||typeof r[k]==='number'&&Number.isFinite(r[k])&&Math.abs(r[k])<10000);}
 
