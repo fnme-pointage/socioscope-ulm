@@ -1,0 +1,44 @@
+name: Verify legacy redirect is live
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/smoke-redirect-live.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify both public domains and legacy callback-forwarding page
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const old='https://fnme-pointage.github.io/socioscope-ulm/';
+          const fresh='https://socioscope-ulm.github.io/';
+          let checked=false;
+          for(let i=0;i<12;i++){
+            const url=old+'?redirect_check='+Date.now();
+            const r=await fetch(url,{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
+            const html=await r.text();
+            if(r.status===200&&html.includes("window.location.replace(destination.href)")&&html.includes("destination.hash = window.location.hash")&&html.includes("destination.search = window.location.search")&&!html.includes('src/main.tsx')){
+              checked=true;
+              console.log('Legacy home now serves a redirect preserving query and hash fragments.');
+              break;
+            }
+            if(i===11)throw Error('Legacy page did not yet publish the redirect; status='+r.status+' oldHTMLlength='+html.length);
+            await new Promise(resolve=>setTimeout(resolve,5000));
+          }
+          assert.equal(checked,true);
+          const r2=await fetch(fresh,{signal:AbortSignal.timeout(20000)});
+          const html2=await r2.text();
+          assert.equal(r2.status,200);
+          assert.match(html2,/id="root"/);
+          console.log('New production Socioscope still responds successfully.');
+          const r3=await fetch(old+'ancien-chemin-inexistant-'+Date.now(),{signal:AbortSignal.timeout(20000)});
+          const html3=await r3.text();
+          assert.ok(r3.status===404||r3.status===200);
+          assert.match(html3,/window.location.replace\(destination.href\)/);
+          console.log('Legacy unknown path serves a fallback redirect.');
+          NODE
