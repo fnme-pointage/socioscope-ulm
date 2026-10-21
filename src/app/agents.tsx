@@ -31,10 +31,53 @@ useEffect(()=>{setOffset(0);},[source,q,agency,college,gf,nr,m3e,years,archive,v
 // An approved reference can supersede a previously selected grid or annual bonus schedule.
 // Clear pinned references on import so the API chooses its newest validated ones.
 useEffect(()=>{setGridRef('');setBonusRef('');},[refreshRevision]);
-useEffect(()=>{if(!source||view==='imports')return;const c=new AbortController();setBusy(true);const p=new URLSearchParams({source,view:view==='hourly'?'payroll':view,q,agency,college,gf,nr,m3e,years,sort,archive:archive?'1':'0',dismissed:dismissed?'1':'0',offset:String(offset),previous,residence,grid:gridRef,bonus:bonusRef});api('/api/agents?'+p,{signal:c.signal}).then(d=>{setResult(d);if((view==='payroll'||view==='hourly')&&d.residence&&d.residence!==residence)setResidence(d.residence);}).catch(e=>{if(e.name!=='AbortError')setNotice(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();},[source,view,q,agency,college,gf,nr,m3e,years,sort,archive,dismissed,offset,previous,residence,gridRef,bonusRef,revision]);
+useEffect(()=>{if(!source||view==='imports')return;const c=new AbortController();setBusy(true);const p=new URLSearchParams({source,view:view==='hourly'?'payroll':view,q,agency,college,gf,nr,m3e,years,sort,archive:archive?'1':'0',dismissed:dismissed?'1':'0',offset:String(offset),previous,residence,grid:gridRef,bonus:bonusRef});api('/api/agents?'+p,{signal:c.signal}).then(d=>{if(c.signal.aborted)return;setResult(d);if((view==='payroll'||view==='hourly')&&d.residence&&d.residence!==residence)setResidence(d.residence);}).catch(e=>{if(e.name!=='AbortError')setNotice(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();},[source,view,q,agency,college,gf,nr,m3e,years,sort,archive,dismissed,offset,previous,residence,gridRef,bonusRef,revision]);
 const open=(id:string)=>setProfileId(id);
-const decide=async(body:any)=>{setBusy(true);try{await api('/api/agents/decision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});setNotice(body.kind==='return'?'Présence confirmée. Les effectifs et analyses sont recalculés ; l’historique est conservé.':body.kind==='executive'||body.kind==='executive_manual'?'Cadre dirigeant enregistré à part. Aucun ajout aux effectifs.':'Décision enregistrée. L’historique est conservé.');await reload();setRevision(r=>r+1);if(profile)setProfile(await api('/api/agents/'+encodeURIComponent(profile.id)));return true;}catch(e){setNotice((e as Error).message);return false;}finally{setBusy(false);}};
-const archivePending=async(rows:any[],kind:'dismiss'|'restore')=>{if(!rows.length)return;if(!window.confirm(kind==='dismiss'?'Retirer '+rows.length+' fiche(s) des rapprochements ? Les données historiques seront conservées.':'Restaurer '+rows.length+' fiche(s) dans les rapprochements ?'))return;setBusy(true);try{for(const r of rows)await api('/api/agents/decision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,agent:r.agentId,source:r.source})});setChosenPending([]);await reload();setRevision(v=>v+1);setNotice(kind==='dismiss'?'Fiches placées dans la corbeille. Historique conservé.':'Fiches restaurées dans les rapprochements.');}catch(e){setNotice((e as Error).message);setRevision(v=>v+1);}finally{setBusy(false);}};
+// Update the visible row and counters as soon as the server confirms the write.
+// A subsequent fetch still validates the canonical data from the database.
+const applySavedDecision=(body:any)=>{
+ const saved={id:'local-'+crypto.randomUUID(),agent:body.agent,kind:body.kind,source:body.source,target:body.target||null,note:body.note||'',created:new Date().toISOString()};
+ setResult((old:any)=>{
+  if(!old)return old;
+  if(view==='movements')return {...old,decisions:[...(old.decisions||[]),saved]};
+  if(view==='identity'&&['dismiss','restore'].includes(body.kind)){
+   const currentlyShowingDismissed=dismissed;
+   const shouldRemove=(body.kind==='dismiss'&&!currentlyShowingDismissed)||(body.kind==='restore'&&currentlyShowingDismissed);
+   if(shouldRemove)return {...old,records:(old.records||[]).filter((r:any)=>!(r.agentId===body.agent&&r.source===body.source)),total:Math.max(0,(old.total||0)-1)};
+  }
+  if(view==='executives'&&body.kind==='executive_remove')return {...old,records:(old.records||[]).filter((r:any)=>r.agentId!==body.agent),total:Math.max(0,(old.total||0)-1)};
+  if(view==='executives'&&body.kind==='executive_update')return {...old,records:(old.records||[]).map((r:any)=>r.agentId===body.agent?{...r,name:body.name,origin:body.origin,startDate:body.startDate,exitDate:body.exitDate,note:body.note}:r).sort((a:any,b:any)=>a.name.localeCompare(b.name,'fr'))};
+  if(view==='executives'&&body.kind==='executive_manual')return {...old,records:[...(old.records||[]),{agentId:body.agent,source:body.source,name:body.name,origin:body.origin,startDate:body.startDate,exitDate:'',note:body.note,manual:true}].sort((a:any,b:any)=>a.name.localeCompare(b.name,'fr')),total:(old.total||0)+1};
+  return old;
+ });
+};
+const decide=async(body:any)=>{
+ setBusy(true);
+ try{
+  await api('/api/agents/decision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  applySavedDecision(body);
+  setNotice(body.kind==='return'?'Présence confirmée. Les effectifs et analyses sont recalculés ; l’historique est conservé.':body.kind==='executive'||body.kind==='executive_manual'?'Cadre dirigeant enregistré à part. Aucun ajout aux effectifs.':'Décision enregistrée. L’historique est conservé.');
+  setRevision(r=>r+1);
+  if(profile)setProfile(await api('/api/agents/'+encodeURIComponent(profile.id)));
+  return true;
+ }catch(e){setNotice((e as Error).message);return false;}
+ finally{setBusy(false);}
+};
+const archivePending=async(rows:any[],kind:'dismiss'|'restore')=>{
+ if(!rows.length||!window.confirm(kind==='dismiss'?'Retirer '+rows.length+' fiche(s) des rapprochements ? Les données historiques seront conservées.':'Restaurer '+rows.length+' fiche(s) dans les rapprochements ?'))return;
+ setBusy(true);
+ let completed=0;
+ try{
+  for(const r of rows){
+   await api('/api/agents/decision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,agent:r.agentId,source:r.source})});
+   applySavedDecision({kind,agent:r.agentId,source:r.source});
+   completed++;
+  }
+  setChosenPending([]);
+  setNotice(kind==='dismiss'?'Fiches placées dans la corbeille. Historique conservé.':'Fiches restaurées dans les rapprochements.');
+ }catch(e){setNotice(completed+' fiche(s) traitée(s). '+(e as Error).message);}
+ finally{if(completed)setRevision(v=>v+1);setBusy(false);}
+};
 const loadReview=async(id:string)=>navigate({agentView:'imports',agentReview:id});
 if(!meta)return <section className="panel"><ShieldCheck/><h2>Chargement de l’espace individuel</h2><p>{notice||'Connexion requise pour consulter Socioscope ULM.'}</p></section>;
 const sources:AgentSource[]=meta.sources;const active=sources.find(s=>s.id===source);const list=result?.records||[];
