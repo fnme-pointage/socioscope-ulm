@@ -17,7 +17,7 @@ export async function decision(request:Request){await agentAuth(request,true);co
  if(!agentRows.some(r=>r.gf===19))throw Object.assign(Error('La conversion depuis les absences exige une situation historique GF 19.'),{status:400});
 }
 if(b.kind==='executive_manual'){
- if(typeof b.name!=='string'||!b.name.trim()||b.name.length>180||typeof b.origin!=='string'||b.origin.length>180||typeof b.startDate!=='string'||(b.startDate!==''&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(b.startDate)))throw Object.assign(Error('Renseigner un nom valide, une origine et une date au format attendu.'),{status:400});
+ if(typeof b.name!=='string'||!b.name.trim()||b.name.length>180||typeof b.origin!=='string'||b.origin.length>180||typeof b.startDate!=='string'||(b.startDate!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(b.startDate)))throw Object.assign(Error('Renseigner un nom valide, une origine et une date au format attendu.'),{status:400});
  if((await resources().db.prepare('SELECT id FROM agent_decisions WHERE agent=?').bind(b.agent).first()))throw Object.assign(Error('Identifiant de fiche déjà utilisé.'),{status:409});
 }
 if(b.kind==='executive_remove'){
