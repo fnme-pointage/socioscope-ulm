@@ -2,6 +2,11 @@ name: Deploy Socioscope API to Supabase
 
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Retour arriere exceptionnel : saisir RESTAURER_ANCIEN_SERVEUR"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -10,6 +15,15 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Block accidental redeployment of historical server
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "RESTAURER_ANCIEN_SERVEUR" ]; then
+            echo "::error::Ce depot est historique. Utiliser le NOUVEAU depot pour les mises a jour. Saisir la confirmation reservee au retour arriere."
+            exit 1
+          fi
+          echo "::warning::Retour arriere explicite demande depuis le depot historique."
       - name: Checkout application source
         uses: actions/checkout@v4
       - name: Install Supabase CLI
