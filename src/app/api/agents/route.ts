@@ -15,11 +15,21 @@ if(view==='executives'){
   if(d.kind==='executive'||d.kind==='executive_manual'||d.kind==='executive_update')executiveStates.set(d.agent,d);
   if(d.kind==='executive_remove')executiveStates.delete(d.agent);
  }
+ const sourceDates=new Map(data.sources.map(s=>[s.id,s.date]));
+ const historyByAgent=new Map<string,typeof data.records>();
+ for(const r of data.records)if(executiveStates.has(r.agentId)){
+  const history=historyByAgent.get(r.agentId)||[];history.push(r);historyByAgent.set(r.agentId,history);
+ }
  const records=[...executiveStates.values()].map(d=>{
   let detail:any={};try{detail=JSON.parse(d.note||'{}');}catch{}
-  const historical=data.records.filter(r=>r.agentId===d.agent);
+  const historical=[...(historyByAgent.get(d.agent)||[])].sort((a,b)=>(sourceDates.get(a.source)||'').localeCompare(sourceDates.get(b.source)||''));
   const last=historical.at(-1);
-  return {agentId:d.agent,source:d.source,name:detail.name||last?.name||'Non renseigné',origin:detail.origin||'',startDate:detail.startDate||'',exitDate:detail.exitDate||'',note:detail.note||'',gf:last?.gf||null,manual:d.agent.startsWith('exec-manual-'),created:d.created};
+  const knownUnitDate=historical.map(r=>r.entryUnit).filter((v):v is string=>!!v&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)).sort()[0]||'';
+  const firstAgency=historical.find(r=>r.agency?.trim())?.agency?.trim()||'';
+  const manual=d.agent.startsWith('exec-manual-');
+  const origin=detail.origin||(!manual?firstAgency:'');
+  const startDate=detail.startDate||(!manual?knownUnitDate:'');
+  return {agentId:d.agent,source:d.source,name:detail.name||last?.name||'Non renseigné',origin,startDate,originSource:detail.origin?'manual':firstAgency&&!manual?'agency':'',startDateSource:detail.startDate?'manual':knownUnitDate&&!manual?'entryUnit':'',exitDate:detail.exitDate||'',note:detail.note||'',gf:last?.gf||null,manual,created:d.created};
  }).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
  return Response.json({records,total:records.length},{headers:{'Cache-Control':'no-store'}});
 }
