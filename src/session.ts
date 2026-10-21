@@ -15,11 +15,9 @@ export async function importAuthCallback(){const hash=new URLSearchParams(window
  // Supabase email links issued before migration may still redirect to this legacy Pages URL.
  // Forward only the callback fragment to the new, approved application origin.
  // Ordinary legacy sign-ins remain untouched, preserving the rollback site.
- const callbackType=hash.get('type')||'';
  const hasCallbackTokens=!!hash.get('access_token')&&!!hash.get('refresh_token');
  const isLegacySite=location.origin==='https://fnme-pointage.github.io'&&location.pathname.startsWith('/socioscope-ulm/');
- const isAccountLink=['recovery','invite','signup','magiclink','email'].includes(callbackType);
- if(isLegacySite&&((hasCallbackTokens&&isAccountLink)||hash.has('error_description'))){
+ if(isLegacySite&&(hasCallbackTokens||hash.has('error_description'))){
   const destination=new URL('https://socioscope-ulm.github.io/');
   destination.hash=location.hash;
   location.replace(destination.href);
