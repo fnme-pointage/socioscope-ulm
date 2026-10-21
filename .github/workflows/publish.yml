@@ -1,0 +1,35 @@
+name: Publier Socioscope ULM
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v4
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Installer les dependances
+        run: npm install --no-audit --no-fund
+      - name: Reconstruire GitHub Pages
+        run: npm run build
+      - name: Publier les fichiers generes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs
+          if ! git diff --cached --quiet; then
+            git commit -m "Publier la derniere version du Socioscope"
+            git push
+          fi
