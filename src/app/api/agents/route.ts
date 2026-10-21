@@ -9,6 +9,20 @@ import {snapshot,sourcePairs,normalName} from '../../../lib/agents';
 export async function GET(request:Request){try{await agentAuth(request);const {data,observedData,decisions}=await agentData();const p=new URL(request.url).searchParams;const view=p.get('view')||'list';const sources=data.sources.sort((a,b)=>a.date.localeCompare(b.date)||Number(b.primary)-Number(a.primary));const source=p.get('source')||sources.filter(s=>(s.primary||s.status==='validated')&&s.status!=='review').at(-1)?.id||'';if(!sources.some(s=>s.id===source))return Response.json({error:'Source inconnue.'},{status:404});
 const excluded=new Set<string>();for(const d of decisions){if(d.kind==='dismiss')excluded.add(d.agent+'|'+d.source);else if(d.kind==='restore')excluded.delete(d.agent+'|'+d.source);}
 if(view==='meta')return Response.json({sources,issues:data.issues,updated:data.updated,agents:new Set(data.records.filter(r=>r.nni).map(r=>r.nni)).size,pending:data.records.filter(r=>!r.nni&&!excluded.has(r.agentId+'|'+r.source)).length,events:data.events.length},{headers:{'Cache-Control':'no-store'}});
+if(view==='executives'){
+ const executiveStates=new Map<string,any>();
+ for(const d of decisions){
+  if(d.kind==='executive'||d.kind==='executive_manual')executiveStates.set(d.agent,d);
+  if(d.kind==='executive_remove')executiveStates.delete(d.agent);
+ }
+ const records=[...executiveStates.values()].map(d=>{
+  let detail:any={};try{detail=JSON.parse(d.note||'{}');}catch{}
+  const historical=data.records.filter(r=>r.agentId===d.agent);
+  const last=historical.at(-1);
+  return {agentId:d.agent,source:d.source,name:detail.name||last?.name||'Non renseigné',origin:detail.origin||'',startDate:detail.startDate||'',note:detail.note||'',gf:last?.gf||null,manual:d.kind==='executive_manual',created:d.created};
+ }).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+ return Response.json({records,total:records.length},{headers:{'Cache-Control':'no-store'}});
+}
 if(view==='payroll'){const refs=await payrollReferences();const g=selectReference(refs,'grid',p.get('grid')||undefined),b=selectReference(refs,'bonuses',p.get('bonus')||undefined);if(!g||!b)return Response.json({error:'Référence inconnue ou non validée.'},{status:400});const requested=p.get('residence')||'agency';const residence=!p.get('grid')&&requested==='1.245'&&!g.payload.rates[requested]?Object.keys(g.payload.rates)[0]:requested;const result=agentPayroll(data,source,residence,{rates:g.payload.rates,bonuses:b.payload.bonuses,gridDate:g.date,bonusReferenceYear:Number(b.date.slice(0,4)),gridId:g.id,bonusId:b.id});if(result&&p.get('agent')){const row=result.rows.find(r=>r.agentId===p.get('agent'));return Response.json({row:row||null,referenceDate:result.referenceDate,gridDate:result.gridDate,gridId:result.gridId,bonusId:result.bonusId,bonusReferenceYear:result.bonusReferenceYear,residence:result.residence},{headers:{'Cache-Control':'no-store'}});}return result?Response.json({...result,references:refs.filter(r=>r.status==='validated').map(({payload,...r})=>({...r,residences:r.kind==='grid'?Object.keys(payload.rates):[]}))},{headers:{'Cache-Control':'no-store'}}):Response.json({error:'Majoration résidentielle invalide.'},{status:400});}
 if(view==='families')return Response.json(agentFamilies(data,source,p.get('agency')||'',p.get('m3e')||''),{headers:{'Cache-Control':'no-store'}});
 if(view==='progression')return Response.json(agentProgression(data,source),{headers:{'Cache-Control':'no-store'}});
