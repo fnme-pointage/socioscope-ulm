@@ -45,12 +45,15 @@ export function sourcePairs(data:AgentData,id:string,previous?:string){
  // Exception GF 19 : keep the historic watchlist when an executive-level
  // employee disappeared before the immediately preceding snapshot.
  const already=new Set(absent.map(r=>r.agentId));
- const olderSources=data.sources.filter(s=>s.status!=='review'&&s.date<(older?.date||src?.date||'')).sort((a,b)=>b.date.localeCompare(a.date)||Number(!!b.primary)-Number(!!a.primary));
- const lastOlder=new Map<string,AgentRecord>();
- for(const source of olderSources)for(const r of snapshot(data,source.id)){
-  if(r.nni&&!lastOlder.has(r.agentId))lastOlder.set(r.agentId,r);
+ const olderDates=new Map(data.sources.filter(s=>s.status!=='review'&&s.date<(older?.date||src?.date||'')).map(s=>[s.id,s.date]));
+ const lastOlder=new Map<string,{date:string;record:AgentRecord}>();
+ for(const r of data.records){
+  const date=olderDates.get(r.source);
+  if(!date||!r.nni||r.gf!==19)continue;
+  const previous=lastOlder.get(r.agentId);
+  if(!previous||date>previous.date)lastOlder.set(r.agentId,{date,record:r});
  }
- for(const r of lastOlder.values()){
+ for(const {record:r} of lastOlder.values()){
   if(r.gf===19&&!c.has(r.agentId)&&!p.has(r.agentId)&&!already.has(r.agentId)){
    absent.push({...r,historicalGF19:true});already.add(r.agentId);
   }
