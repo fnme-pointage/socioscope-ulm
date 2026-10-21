@@ -12,14 +12,14 @@ if(view==='meta')return Response.json({sources,issues:data.issues,updated:data.u
 if(view==='executives'){
  const executiveStates=new Map<string,any>();
  for(const d of decisions){
-  if(d.kind==='executive'||d.kind==='executive_manual')executiveStates.set(d.agent,d);
+  if(d.kind==='executive'||d.kind==='executive_manual'||d.kind==='executive_update')executiveStates.set(d.agent,d);
   if(d.kind==='executive_remove')executiveStates.delete(d.agent);
  }
  const records=[...executiveStates.values()].map(d=>{
   let detail:any={};try{detail=JSON.parse(d.note||'{}');}catch{}
   const historical=data.records.filter(r=>r.agentId===d.agent);
   const last=historical.at(-1);
-  return {agentId:d.agent,source:d.source,name:detail.name||last?.name||'Non renseigné',origin:detail.origin||'',startDate:detail.startDate||'',note:detail.note||'',gf:last?.gf||null,manual:d.kind==='executive_manual',created:d.created};
+  return {agentId:d.agent,source:d.source,name:detail.name||last?.name||'Non renseigné',origin:detail.origin||'',startDate:detail.startDate||'',exitDate:detail.exitDate||'',note:detail.note||'',gf:last?.gf||null,manual:d.agent.startsWith('exec-manual-'),created:d.created};
  }).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
  return Response.json({records,total:records.length},{headers:{'Cache-Control':'no-store'}});
 }
