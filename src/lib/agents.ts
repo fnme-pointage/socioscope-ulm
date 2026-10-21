@@ -68,26 +68,34 @@ export function validateAgentRecord(r:any):r is AgentRecord{return !!r&&typeof r
 // Manual presence supplements missing rows; original observations remain intact.
 export function withConfirmedPresence(data:AgentData,decisions:any[]):AgentData{
  const sources=data.sources.filter(s=>s.status!=='review').sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
- const refs=new Map(sources.map(s=>[s.id,s]));
- const groups=new Map<string,any[]>();
- for(const d of decisions)if(['return','departure','absence'].includes(d.kind)&&refs.has(d.source)){const list=groups.get(d.agent)||[];list.push(d);groups.set(d.agent,list);}
+ const grouped=new Map<string,AgentRecord[]>();
+ for(const r of data.records){const list=grouped.get(r.agentId)||[];list.push(r);grouped.set(r.agentId,list);}
+ const byAgent=new Map<string,Map<string,any>>();
+ for(const d of decisions){
+  if(!['return','departure','absence'].includes(d.kind))continue;
+  const item=byAgent.get(d.agent)||new Map<string,any>();
+  item.set(d.source,d);byAgent.set(d.agent,item);
+ }
  const added:AgentRecord[]=[];
- for(const [agent,ds] of groups){
+ for(const [agent,choices] of byAgent){
+  const observations=new Map<string,AgentRecord[]>();
+  for(const r of grouped.get(agent)||[]){const list=observations.get(r.source)||[];list.push(r);observations.set(r.source,list);}
   let active:any=null;
-  for(const source of sources){
-   const observed=data.records.filter(r=>r.agentId===agent&&r.source===source.id);
-   if(observed.length)active=null;
-   const choice=ds.filter(d=>d.source===source.id).at(-1);
-   if(choice)active=choice.kind==='return'?choice:null;
-   if(!active||observed.length)continue;
-   const prior=data.records.filter(r=>r.agentId===agent&&(refs.get(r.source)?.date||'9999')<source.date).sort((a,b)=>(refs.get(b.source)?.date||'').localeCompare(refs.get(a.source)?.date||''))[0];
-   if(!prior?.nni)continue;
-   let details:any={};try{details=JSON.parse(active.note);}catch{}
-   const values=details.presence||{};
-   const row:AgentRecord={...prior,id:'presence:'+active.id+':'+source.id,source:source.id,manualPresence:true,originalSource:prior.source,presenceNote:details.presence?details.note:active.note,seniorityDate:prior.seniorityDate||refs.get(prior.source)?.seniorityDate};
-   for(const key of ['gf','nr','agency'] as const)if(values[key]!==undefined){(row as any)[key]=values[key];if(key!=='agency'&&values[key]!==prior[key]){delete row[key==='gf'?'gfDate':'nrDate'];delete row[key==='gf'?'gfYears':'nrYears'];}}
-   if(values.gf!==undefined&&values.gf!==prior.gf)row.college=values.gf>=12?'cadres':values.gf>=7?'maitrise':'execution';
-   added.push(row);
+  let prior:AgentRecord|undefined;
+  for(const src of sources){
+   const rows=observations.get(src.id)||[];
+   if(rows.length)active=null;
+   const decision=choices.get(src.id);
+   if(decision)active=decision.kind==='return'?decision:null;
+   if(active&&!rows.length&&prior?.nni){
+    let details:any={};try{details=JSON.parse(active.note||'{}');}catch{}
+    const values=details.presence||{};
+    const row:AgentRecord={...prior,id:'presence:'+active.id+':'+src.id,source:src.id,manualPresence:true,originalSource:prior.source,presenceNote:details.presence?details.note:active.note,seniorityDate:prior.seniorityDate||data.sources.find(s=>s.id===prior!.source)?.seniorityDate};
+    for(const key of ['gf','nr','agency'] as const)if(values[key]!==undefined){(row as any)[key]=values[key];if(key!=='agency'&&values[key]!==prior[key]){delete row[key==='gf'?'gfDate':'nrDate'];delete row[key==='gf'?'gfYears':'nrYears'];}}
+    if(values.gf!==undefined&&values.gf!==prior.gf)row.college=values.gf>=12?'cadres':values.gf>=7?'maitrise':'execution';
+    added.push(row);
+   }
+   if(rows.length)prior=rows[0];
   }
  }
  return {...data,records:[...data.records,...added]};
