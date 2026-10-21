@@ -2,6 +2,11 @@ name: Deploy new-site bridge (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Réactivation exceptionnelle du relais : saisir RESTAURER_ANCIEN_RELAIS"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -10,6 +15,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Block accidental revival of retired bridge
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "RESTAURER_ANCIEN_RELAIS" ]; then
+            echo "::error::Le relais historique ne doit pas etre reactive sans confirmation explicite."
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
